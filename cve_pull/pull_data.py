@@ -10,13 +10,13 @@ from dateutil.parser import isoparse
 from datetime import timezone
 
 # Load environment variables
-GITHUB_TOKEN = get_env_variable("GITHUB_TOKEN")
-GITHUB_API_URL = get_env_variable("GITHUB_API_URL")
+CLASSIC_TOKEN_GITHUB = get_env_variable("CLASSIC_TOKEN_GITHUB")
+CVE_GITHUB_API_URL = get_env_variable("CVE_GITHUB_API_URL")
 NVD_API_KEY = get_env_variable("NVD_API_KEY")
 
 github_headers = {
     "Accept": "application/vnd.github.v3+json",
-    "Authorization": f"token {GITHUB_TOKEN}"
+    "Authorization": f"token {CLASSIC_TOKEN_GITHUB}"
 }
 
 def fetch_from_nvd(cve_id):
@@ -68,7 +68,7 @@ def pull_cves(days=1):
     since_date = datetime.datetime.now(timezone.utc) - datetime.timedelta(days=days)
     print(f"⏳ Pulling CVEs published after {since_date.isoformat()}")
 
-    res = requests.get(GITHUB_API_URL, headers=github_headers)
+    res = requests.get(CVE_GITHUB_API_URL, headers=github_headers)
 
     try:
         file_list = res.json()

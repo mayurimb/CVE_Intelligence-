@@ -24,8 +24,8 @@ jobs:
 
       - name: Run CVE Pull Script
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GITHUB_API_URL: ${{ secrets.GITHUB_API_URL }}
+          CLASSIC_TOKEN_GITHUB: ${{ secrets.CLASSIC_TOKEN_GITHUB }}
+          CVE_GITHUB_API_URL: ${{ secrets.CVE_GITHUB_API_URL }}
           NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
           TEAMS_FLOW_URL: ${{ secrets.TEAMS_FLOW_URL }}
         run: python cve_pull/teams_channel.py
