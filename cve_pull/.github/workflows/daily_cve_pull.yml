@@ -3,8 +3,7 @@ name: Daily CVE Pull and Post to Teams
 on:
   schedule:
     - cron: "6 17 * * *" # UTC 11:30 AM → 5:00 PM IST
-  workflow_dispatch: # Optional: allows you to run it manually too
-
+  workflow_dispatch:
 jobs:
   run-cve-script:
     runs-on: ubuntu-latest

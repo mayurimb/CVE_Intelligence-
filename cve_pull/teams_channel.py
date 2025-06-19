@@ -10,7 +10,7 @@ TEAMS_URL = os.getenv("TEAMS_FLOW_URL")
 
 def format_message(cves):
     if not cves:
-        return "🛡️ No new CVEs found in the past 1 day."
+        return "🛡️ No new CVEs found in the past 7 days."
 
     message = "**🛡️ Daily CVE Updates** \n"
     for cve in cves:
