@@ -31,38 +31,47 @@ def fetch_from_nvd(cve_id):
 
     try:
         res = requests.get(url, headers=headers, params=params)
-        if res.status_code == 200:
-            data = res.json()
-            vuln_items = data.get("vulnerabilities", [])
-            if not vuln_items:
-                return None
-
-            cvss_data = vuln_items[0].get("cve", {}).get("metrics", {})
-            # Prefer CVSS v3.1, fallback to CVSS v3.0 or v2
-            if "cvssMetricV31" in cvss_data:
-                metric = cvss_data["cvssMetricV31"][0]["cvssData"]
-                severity = vuln_items[0]["cve"]["metrics"]["cvssMetricV31"][0].get("baseSeverity")
-            elif "cvssMetricV30" in cvss_data:
-                metric = cvss_data["cvssMetricV30"][0]["cvssData"]
-                severity = vuln_items[0]["cve"]["metrics"]["cvssMetricV30"][0].get("baseSeverity")
-            elif "cvssMetricV2" in cvss_data:
-                metric = cvss_data["cvssMetricV2"][0]["cvssData"]
-                severity = vuln_items[0]["cve"]["metrics"]["cvssMetricV2"][0].get("baseSeverity")
-            else:
-                return None
-
-            return {
-                "severity": severity,
-                "score": metric.get("baseScore"),
-                "vector": metric.get("vectorString")
-            }
-        else:
+        if res.status_code != 200:
             print(f"❌ NVD API failed for {cve_id}: {res.status_code} | {res.text[:100]}")
             return None
+
+        data = res.json()
+        vuln_items = data.get("vulnerabilities", [])
+        if not vuln_items:
+            print(f"⚠️ No vulnerabilities found in NVD for {cve_id}")
+            return None
+
+        cve_data = vuln_items[0].get("cve", {})
+        cvss_data = cve_data.get("metrics", {})
+        vuln_status = cve_data.get("vulnStatus", "UNKNOWN")
+
+        cvss_priority = ["cvssMetricV40", "cvssMetricV31", "cvssMetricV30", "cvssMetricV2"]
+
+        for version_key in cvss_priority:
+            if version_key in cvss_data:
+                metric_block = cvss_data[version_key][0]
+                metric = metric_block.get("cvssData", {})
+                severity = metric_block.get("baseSeverity", "N/A")
+                return {
+                    "severity": severity,
+                    "score": metric.get("baseScore", "N/A"),
+                    "vector": metric.get("vectorString", "N/A"),
+                    "vulnStatus": vuln_status,
+                    "cvssVersion": version_key.replace("cvssMetric", "")
+                }
+
+        print(f"⚠️ No known CVSS metric found for {cve_id}")
+        return {
+            "severity": "⚠️ No metrics yet",
+            "score": "N/A",
+            "vector": "N/A",
+            "vulnStatus": vuln_status,
+            "cvssVersion": "None"
+        }
+
     except Exception as e:
         print(f"⚠️ Exception while fetching {cve_id} from NVD: {e}")
         return None
-
 
 def pull_cves(days=1):
     since_date = datetime.datetime.now(timezone.utc) - datetime.timedelta(days=days)
@@ -101,10 +110,8 @@ def pull_cves(days=1):
             cve_id = meta.get("cveId")
 
             published = (
-                meta.get("datePublished")
-                or meta.get("dateUpdated")
-                or cna.get("datePublished")
-                or cna.get("dateUpdated")
+                meta.get("datePublished") or meta.get("dateUpdated")
+                or cna.get("datePublished") or cna.get("dateUpdated")
             )
 
             if not published:
@@ -119,22 +126,42 @@ def pull_cves(days=1):
                 if d.get("lang") == "en":
                     desc = d.get("value")
 
-            source = "CVE GitHub repo"
+            # source = "CVE GitHub repo"       
             cvss_data = cna.get("metrics", [])
-            if cvss_data and "cvssV3_1" in cvss_data[0]:
-                cvss = cvss_data[0]["cvssV3_1"]
-                severity = cvss.get("baseSeverity")
-                score = cvss.get("baseScore")
-                vector = cvss.get("vectorString")
-            else:
+            found = False
+            cvss = severity = score = vector = version = None
+            status = cna.get("vulnStatus", "UNKNOWN")
+
+            for version_key in ["cvssV4_0", "cvssV3_1", "cvssV3_0", "cvssV2"]:
+                if cvss_data and version_key in cvss_data[0]:
+                    cvss = cvss_data[0][version_key]
+                    severity = cvss.get("baseSeverity")
+                    score = cvss.get("baseScore")
+                    vector = cvss.get("vectorString")
+                    version = version_key.replace("cvssV", "")
+                    source = "CVE GitHub repo"
+                    found = True
+                    break
+
+            if not found or not status or status.upper() == "UNKNOWN":
                 nvd = fetch_from_nvd(cve_id)
                 time.sleep(1)
                 if nvd:
                     source = "NVD data"
-                    severity, score, vector = nvd["severity"], nvd["score"], nvd["vector"]
+                    # only fill missing data
+                    severity = severity or nvd["severity"]
+                    score = score or nvd["score"]
+                    vector = vector or nvd["vector"]
+                    status = nvd["vulnStatus"]
+                    version = version or nvd["cvssVersion"]
                 else:
                     source = "Unavailable"
-                    severity = score = vector = None
+                    severity = severity or "⚠️ No metrics yet"
+                    score = score or "N/A"
+                    vector = vector or "N/A"
+                    status = status or "UNKNOWN"
+                    version = version or "None"
+
 
             cves.append({
                 "cve_id": cve_id,
@@ -143,6 +170,7 @@ def pull_cves(days=1):
                 "severity": severity,
                 "score": score,
                 "vector": vector,
+                "status": status,
                 "source": source
             })
 

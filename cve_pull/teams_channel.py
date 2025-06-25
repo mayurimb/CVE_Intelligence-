@@ -12,14 +12,13 @@ def format_message(cves):
     if not cves:
         return "🛡️ No new CVEs found in the past 7 days."
 
-    message = "**🛡️ Daily CVE Updates** \n"
+    message = "🛡️ Daily CVE Updates \n\n"
     for cve in cves:
         message += f"- **{cve['cve_id']}**: {cve['description'] or 'No description'}\n"
         if cve["severity"]:
-            message += f"  - Severity: `{cve['severity']}` | Score: `{cve['score']}` | Source: `{cve['source']}`\n"
-        elif cve["source"] == "Unavailable":
-            message += f"  - ⚠️ CVE Info Unavailable from GitHub and NVD.\n"
+            message += f"  - Severity: `{cve['severity']}` | Score: `{cve['score']}` | Status: `{cve['status']}`\n"
         message += "\n"
+    print(message)
     return message
 
 def send_to_teams():
